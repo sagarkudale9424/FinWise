@@ -1,0 +1,176 @@
+'use client';
+import { useMemo, useState } from 'react';
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, BarChart, Bar, YAxis } from 'recharts';
+import { ArrowDownLeft, ArrowUpRight, Plus, Search, Trash2, Pencil, CreditCard, Download, Sparkles, Send, X } from 'lucide-react';
+const colors = ['#05d6a3', '#5598ff', '#a778ff', '#ffc958', '#ff527c', '#55c9dd'];
+const formatMoney = (value, currency) => new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value || 0);
+const monthNow = () => new Date().toISOString().slice(0, 7);
+const categoryColor = (index) => colors[index % colors.length];
+export function DashboardView({ transactions, budgets, goals, ...common }) {
+    const { currency, toast } = common;
+    const monthly = transactions.filter(t => t.date.slice(0, 7) === monthNow());
+    const income = monthly.filter(t => t.kind === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = monthly.filter(t => t.kind === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const spentByCategory = monthly.filter(t => t.kind === 'expense').reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + t.amount; return acc; }, {});
+    const pieData = Object.entries(spentByCategory).map(([name, value], index) => ({ name, value, color: categoryColor(index) }));
+    const chartData = useMemo(() => { const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i)); return d; }); return months.map(d => { const key = d.toISOString().slice(0, 7); const rows = transactions.filter(t => t.date.slice(0, 7) === key); return { month: d.toLocaleString(undefined, { month: 'short' }), income: rows.filter(t => t.kind === 'income').reduce((s, t) => s + t.amount, 0), spending: rows.filter(t => t.kind === 'expense').reduce((s, t) => s + t.amount, 0) }; }); }, [transactions]);
+    const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
+    return <>
+    <div className="welcome-row"><div><div className="eyebrow">YOUR MONEY AT A GLANCE <span className="live-dot"/></div><p className="subhead">Your saved activity for {new Date().toLocaleString(undefined, { month: 'long', year: 'numeric' })}.</p></div></div>
+    <div className="stats-grid"><article className="stat-card balance-card"><div className="stat-top"><span>Net cash flow</span></div><div className="stat-value">{formatMoney(income - expense, currency)}</div><div className="stat-foot">Income minus expenses this month</div></article><article className="stat-card"><div className="stat-top"><span>Monthly income</span><span className="stat-icon green-icon"><ArrowDownLeft size={17}/></span></div><div className="stat-value">{formatMoney(income, currency)}</div><div className="stat-foot">{monthly.filter(t => t.kind === 'income').length} recorded transactions</div></article><article className="stat-card"><div className="stat-top"><span>Total spent</span><span className="stat-icon coral-icon"><ArrowUpRight size={17}/></span></div><div className="stat-value">{formatMoney(expense, currency)}</div><div className="stat-foot">{monthly.filter(t => t.kind === 'expense').length} recorded transactions</div></article><article className="stat-card"><div className="stat-top"><span>Budget remaining</span><span className="stat-icon lavender-icon"><Sparkles size={17}/></span></div><div className="stat-value">{formatMoney(Math.max(totalBudget - expense, 0), currency)}</div><div className="stat-foot">Across {budgets.length} monthly budgets</div></article></div>
+    <div className="middle-grid"><section className="panel spending-panel"><div className="panel-heading"><div><div className="section-kicker">LAST 6 MONTHS</div><h2>Cash flow</h2></div></div><div className="chart-legend"><span><i className="legend-income"/> Income <b>{formatMoney(income, currency)}</b></span><span><i className="legend-spend"/> Spending <b>{formatMoney(expense, currency)}</b></span></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 8, right: 4, left: -22, bottom: 0 }}><defs><linearGradient id="flowIncome" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#05d6a3" stopOpacity={.25}/><stop offset="100%" stopColor="#05d6a3" stopOpacity={0}/></linearGradient><linearGradient id="flowExpense" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff5379" stopOpacity={.2}/><stop offset="100%" stopColor="#ff5379" stopOpacity={0}/></linearGradient></defs><CartesianGrid vertical={false} stroke="#28283a" strokeDasharray="3 5"/><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#898aa0', fontSize: 10 }}/><Tooltip formatter={(value) => formatMoney(Number(value), currency)} contentStyle={{ background: '#17172a', border: '1px solid #29293e', borderRadius: 8, color: '#fff' }}/><Area type="monotone" dataKey="income" name="Income" stroke="#05d6a3" strokeWidth={2.4} fill="url(#flowIncome)"/><Area type="monotone" dataKey="spending" name="Expenses" stroke="#ff5379" strokeWidth={2.2} fill="url(#flowExpense)"/></AreaChart></ResponsiveContainer></div>{!transactions.length && <p className="empty-note">Add your first transaction to see your cash flow here.</p>}</section>
+      <section className="panel spending-card"><div className="panel-heading"><div><div className="section-kicker">THIS MONTH</div><h2>Spending by category</h2></div></div>{pieData.length ? <><div className="donut-area"><div className="donut-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} dataKey="value" nameKey="name" innerRadius="68%" outerRadius="91%" paddingAngle={3} stroke="none">{pieData.map(item => <Cell key={item.name} fill={item.color}/>)}</Pie><Tooltip formatter={(v) => formatMoney(Number(v), currency)} contentStyle={{ background: '#17172a', border: '1px solid #29293e', borderRadius: 8, color: '#fff' }}/></PieChart></ResponsiveContainer><div className="donut-center"><strong>{formatMoney(expense, currency)}</strong><span>total spent</span></div></div></div><div className="spend-legend">{pieData.slice(0, 5).map(item => <div key={item.name}><i style={{ background: item.color }}/><span>{item.name}</span><strong>{formatMoney(item.value, currency)}</strong></div>)}</div></> : <p className="empty-note">Expense categories will appear after you add transactions.</p>}</section></div>
+    <div className="lower-grid"><section className="panel transactions-panel"><div className="transactions-heading"><div><div className="section-kicker">LATEST ACTIVITY</div><h2>Recent transactions <span className="tx-count">{transactions.length}</span></h2></div><button className="add-goal" onClick={common.onAdd}>+ Add transaction</button></div><TransactionRows rows={transactions.slice(0, 5)} currency={currency} onEdit={common.onEdit} onDelete={common.onDelete}/><button className="all-transactions" onClick={() => common.onView('Transactions')}>All transactions <ArrowUpRight size={14}/></button></section><section className="panel savings-panel"><div className="panel-heading"><div><div className="section-kicker">SAVING FOR WHAT MATTERS</div><h2>Savings goals</h2></div><button className="add-goal" onClick={() => common.onView('Savings Goals')}>View goals →</button></div>{goals.slice(0, 3).map(goal => <GoalProgress goal={goal} currency={currency} key={goal._id}/>)}{!goals.length && <p className="empty-note">Add a goal to start tracking your progress.</p>}</section></div>
+  </>;
+}
+function TransactionRows({ rows, currency, onEdit, onDelete }) {
+    return <div className="transaction-list">{rows.length ? rows.map(tx => <div className="transaction-row" key={tx._id}><div className="merchant"><span className={`merchant-icon ${tx.kind === 'income' ? 'mint' : 'peach'}`}>{tx.kind === 'income' ? '↗' : '↘'}</span><strong>{tx.description}</strong></div><div><span className={`pill ${tx.kind === 'income' ? 'pill-income' : ''}`}>{tx.category}</span></div><span className="tx-date">{new Date(tx.date).toLocaleDateString()}</span><strong className={`tx-amount ${tx.kind === 'income' ? 'income' : ''}`}>{tx.kind === 'income' ? '+' : '−'}{formatMoney(tx.amount, currency)}</strong><div className="row-actions"><button className="row-more" title="Edit transaction" onClick={() => onEdit(tx)}><Pencil size={14}/></button><button className="row-more" title="Delete transaction" onClick={() => onDelete(tx._id)}><Trash2 size={14}/></button></div></div>) : <div className="empty-state">No transactions yet.</div>}</div>;
+}
+export function TransactionsView({ transactions, ...common }) {
+    const [query, setQuery] = useState('');
+    const [kind, setKind] = useState('all');
+    const [category, setCategory] = useState('all');
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+    const categories = Array.from(new Set(transactions.map(t => t.category))).sort();
+    const rows = transactions.filter(t => (kind === 'all' || t.kind === kind) && (category === 'all' || t.category === category) && (!from || t.date.slice(0, 10) >= from) && (!to || t.date.slice(0, 10) <= to) && (t.description.toLowerCase().includes(query.toLowerCase()) || t.category.toLowerCase().includes(query.toLowerCase())));
+    return <section className="section-view"><div className="view-title"><div><div className="section-kicker">YOUR FINANCIAL ACTIVITY</div><h1>Transactions</h1><p>Search, review, edit, and remove your recorded activity.</p></div><button className="primary-action" onClick={common.onAdd}><Plus size={16}/> Add transaction</button></div><div className="panel transactions-panel"><div className="view-toolbar"><label className="search-field"><Search size={15}/><input id="transactions-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search transactions"/></label><select className="filter-select" aria-label="Filter by type" value={kind} onChange={e => setKind(e.target.value)}><option value="all">All activity</option><option value="income">Income</option><option value="expense">Expenses</option></select><select className="filter-select" aria-label="Filter by category" value={category} onChange={e => setCategory(e.target.value)}><option value="all">All categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select><input className="filter-date" aria-label="From date" type="date" value={from} onChange={e => setFrom(e.target.value)}/><input className="filter-date" aria-label="To date" type="date" value={to} onChange={e => setTo(e.target.value)}/><button className="export-button" onClick={() => { const csv = ['Description,Category,Type,Amount,Date', ...rows.map(t => `"${t.description.replaceAll('"', '""')}","${t.category}",${t.kind},${t.amount},${t.date.slice(0, 10)}`)].join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'finwise-transactions.csv'; a.click(); URL.revokeObjectURL(a.href); common.toast('Transactions exported as CSV.'); }}><Download size={15}/> Export CSV</button></div><div className="table-head"><span>TRANSACTION</span><span>CATEGORY</span><span>DATE</span><span>AMOUNT</span><span>ACTIONS</span></div><TransactionRows rows={rows} currency={common.currency} onEdit={common.onEdit} onDelete={common.onDelete}/></div></section>;
+}
+export function AnalyticsView({ transactions, ...common }) {
+    const data = useMemo(() => { const months = Array.from({ length: 12 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (11 - i)); return d; }); return months.map(d => { const key = d.toISOString().slice(0, 7); const rows = transactions.filter(t => t.date.slice(0, 7) === key); return { month: d.toLocaleString(undefined, { month: 'short' }), income: rows.filter(t => t.kind === 'income').reduce((s, t) => s + t.amount, 0), expenses: rows.filter(t => t.kind === 'expense').reduce((s, t) => s + t.amount, 0) }; }); }, [transactions]);
+    const cats = Object.entries(transactions.filter(t => t.kind === 'expense').reduce((a, t) => { a[t.category] = (a[t.category] || 0) + t.amount; return a; }, {})).map(([name, value], i) => ({ name, value, color: categoryColor(i) }));
+    const totalIncome = transactions.filter(t => t.kind === 'income').reduce((s, t) => s + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.kind === 'expense').reduce((s, t) => s + t.amount, 0);
+    return <section className="section-view"><div className="view-title"><div><div className="section-kicker">PATTERNS IN YOUR MONEY</div><h1>Analytics</h1><p>Charts and totals update from your saved transactions.</p></div></div><div className="stats-grid analytics-stats"><article className="stat-card"><span className="stat-top">All-time income</span><div className="stat-value">{formatMoney(totalIncome, common.currency)}</div></article><article className="stat-card"><span className="stat-top">All-time spending</span><div className="stat-value">{formatMoney(totalExpense, common.currency)}</div></article><article className="stat-card"><span className="stat-top">Net cash flow</span><div className="stat-value">{formatMoney(totalIncome - totalExpense, common.currency)}</div></article><article className="stat-card"><span className="stat-top">Transactions</span><div className="stat-value">{transactions.length}</div></article></div><div className="analytics-grid"><section className="panel analytics-chart"><div className="panel-heading"><h2>Income and expenses · 12 months</h2></div><ResponsiveContainer width="100%" height="90%"><BarChart data={data}><CartesianGrid vertical={false} stroke="#29293d"/><XAxis dataKey="month" tick={{ fill: '#9293a7', fontSize: 10 }} axisLine={false} tickLine={false}/><YAxis tick={{ fill: '#9293a7', fontSize: 9 }} axisLine={false} tickLine={false}/><Tooltip formatter={(v) => formatMoney(Number(v), common.currency)} contentStyle={{ background: '#17172a', border: '1px solid #29293e', borderRadius: 8, color: '#fff' }}/><Bar dataKey="income" fill="#05d6a3" radius={[4, 4, 0, 0]}/><Bar dataKey="expenses" fill="#ff5379" radius={[4, 4, 0, 0]}/></BarChart></ResponsiveContainer></section><section className="panel analytics-categories"><div className="panel-heading"><h2>Spending categories</h2></div>{cats.length ? <><div className="analytics-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={cats} dataKey="value" nameKey="name" innerRadius="63%" outerRadius="90%" paddingAngle={3}>{cats.map(x => <Cell key={x.name} fill={x.color}/>)}</Pie><Tooltip formatter={(v) => formatMoney(Number(v), common.currency)}/></PieChart></ResponsiveContainer></div>{cats.sort((a, b) => b.value - a.value).map(c => <div className="analytics-cat-row" key={c.name}><i style={{ background: c.color }}/>{c.name}<strong>{formatMoney(c.value, common.currency)}</strong></div>)}</> : <p className="empty-note">Add expenses to build your category analysis.</p>}</section></div></section>;
+}
+export function BudgetsView({ budgets, transactions, ...common }) {
+    const [category, setCategory] = useState('Food & drink');
+    const [limit, setLimit] = useState('');
+    const [month, setMonth] = useState(monthNow());
+    const [busy, setBusy] = useState(false);
+    const add = async (e) => { e.preventDefault(); setBusy(true); try {
+        if (await common.onSave({ category, month, limit: Number(limit) })) {
+            setLimit('');
+            common.toast('Budget saved.');
+        }
+    }
+    finally {
+        setBusy(false);
+    } };
+    return <section className="section-view"><div className="view-title"><div><div className="section-kicker">PLAN YOUR SPENDING</div><h1>Budgets</h1><p>Set monthly limits by category and track progress.</p></div></div><form className="panel budget-form" onSubmit={add}><label>Category<select value={category} onChange={e => setCategory(e.target.value)}>{['Food & drink', 'Groceries', 'Housing', 'Transport', 'Shopping', 'Entertainment', 'Subscriptions', 'Health', 'Other'].map(c => <option key={c}>{c}</option>)}</select></label><label>Month<input type="month" value={month} onChange={e => setMonth(e.target.value)}/></label><label>Limit<input type="number" min="0.01" step="0.01" required value={limit} onChange={e => setLimit(e.target.value)} placeholder="0.00"/></label><button className="primary-action" disabled={busy}><Plus size={16}/> Save budget</button></form><div className="budget-list">{budgets.map(b => { const spent = transactions.filter(t => t.kind === 'expense' && t.date.slice(0, 7) === b.month && t.category === b.category).reduce((s, t) => s + t.amount, 0); const percent = Math.min(spent / b.limit * 100, 100); return <article className="panel budget-item" key={b._id}><div className="budget-item-head"><div><div className="section-kicker">{b.month}</div><h2>{b.category}</h2></div><button className="row-more" title="Delete budget" onClick={() => common.onDelete(b._id)}><Trash2 size={15}/></button></div><div className="budget-summary"><div><strong>{formatMoney(spent, common.currency)}</strong><span> spent of {formatMoney(b.limit, common.currency)}</span></div><span className="budget-left">{formatMoney(Math.max(b.limit - spent, 0), common.currency)} left</span></div><div className="budget-track"><i style={{ width: `${percent}%`, background: percent >= 90 ? '#ff5379' : '#05d6a3' }}/></div><div className="budget-percent"><span>{Math.round(percent)}% used</span><span>{b.month}</span></div></article>; })}{!budgets.length && <section className="panel empty-panel">No budgets yet. Create a category budget above.</section>}</div></section>;
+}
+function GoalProgress({ goal, currency, onContribute, onDelete }) {
+    const [amount, setAmount] = useState('');
+    const percent = Math.min(Math.round(goal.saved / goal.target * 100), 100);
+    return <div className="goal-row goal-item"><div className="goal-top"><strong>{goal.emoji} {goal.name}</strong><span>{formatMoney(goal.saved, currency)} <i>/ {formatMoney(goal.target, currency)}</i></span></div><div className="goal-track"><i style={{ width: `${percent}%`, background: goal.color || '#05d6a3' }}/></div><small>{percent}% complete{goal.targetDate ? ` · target ${new Date(goal.targetDate).toLocaleDateString()}` : ''}</small>{onContribute && <form className="goal-contribution" onSubmit={async (e) => { e.preventDefault(); const value = Number(amount); if (value > 0 && await onContribute(goal._id, value))
+        setAmount(''); }}><input aria-label={`Contribution to ${goal.name}`} type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Add amount"/><button className="small-action">Add savings</button>{onDelete && <button type="button" className="row-more" aria-label={`Delete ${goal.name}`} onClick={() => onDelete(goal._id)}><Trash2 size={14}/></button>}</form>}</div>;
+}
+export function GoalsView({ goals, ...common }) {
+    const [name, setName] = useState('');
+    const [target, setTarget] = useState('');
+    const [saved, setSaved] = useState('0');
+    const [targetDate, setTargetDate] = useState('');
+    const [emoji, setEmoji] = useState('🎯');
+    const [busy, setBusy] = useState(false);
+    const add = async (e) => { e.preventDefault(); setBusy(true); try {
+        if (await common.onCreate({ name, target: Number(target), saved: Number(saved), emoji, targetDate: targetDate || undefined })) {
+            setName('');
+            setTarget('');
+            setSaved('0');
+            setTargetDate('');
+            common.toast('Savings goal created.');
+        }
+    }
+    finally {
+        setBusy(false);
+    } };
+    const savedTotal = goals.reduce((s, g) => s + g.saved, 0);
+    const targetTotal = goals.reduce((s, g) => s + g.target, 0);
+    return <section className="section-view"><div className="view-title"><div><div className="section-kicker">MAKE PROGRESS VISIBLE</div><h1>Savings Goals</h1><p>{formatMoney(savedTotal, common.currency)} saved toward {formatMoney(targetTotal, common.currency)} across {goals.length} goals.</p></div></div><form className="panel create-form" onSubmit={add}><label>Goal name<input required minLength={2} maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Emergency fund"/></label><label>Emoji<input value={emoji} maxLength={8} onChange={e => setEmoji(e.target.value)}/></label><label>Target amount<input type="number" min="0.01" step="0.01" required value={target} onChange={e => setTarget(e.target.value)} placeholder="0.00"/></label><label>Already saved<input type="number" min="0" step="0.01" value={saved} onChange={e => setSaved(e.target.value)}/></label><label>Target date<input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)}/></label><button className="primary-action" disabled={busy}><Plus size={16}/> Add goal</button></form><div className="goal-list-full">{goals.map(g => <article className="panel goal-card" key={g._id}><GoalProgress goal={g} currency={common.currency} onContribute={common.onContribute} onDelete={common.onDelete}/></article>)}{!goals.length && <section className="panel empty-panel">No goals yet. Add one above to start saving.</section>}</div></section>;
+}
+export function CardsView({ cards, ...common }) {
+    const [label, setLabel] = useState('');
+    const [issuer, setIssuer] = useState('');
+    const [last4, setLast4] = useState('');
+    const [kind, setKind] = useState('debit');
+    const [busy, setBusy] = useState(false);
+    async function add(e) { e.preventDefault(); setBusy(true); try {
+        if (await common.onCreate({ label, issuer, last4, kind })) {
+            setLabel('');
+            setIssuer('');
+            setLast4('');
+            common.toast('Card added.');
+        }
+    }
+    finally {
+        setBusy(false);
+    } }
+    return <section className="section-view"><div className="view-title"><div><div className="section-kicker">YOUR PAYMENT METHODS</div><h1>Cards</h1><p>Keep a private reference for your cards. FinWise stores only the last four digits.</p></div></div><form className="panel create-form card-form" onSubmit={add}><label>Card nickname<input required maxLength={40} value={label} onChange={e => setLabel(e.target.value)} placeholder="Everyday card"/></label><label>Bank / issuer<input required maxLength={30} value={issuer} onChange={e => setIssuer(e.target.value)} placeholder="Your bank"/></label><label>Last 4 digits<input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={last4} onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234"/></label><label>Type<select value={kind} onChange={e => setKind(e.target.value)}><option value="debit">Debit</option><option value="credit">Credit</option></select></label><button className="primary-action" disabled={busy}><Plus size={16}/> Add card</button></form><div className="cards-grid">{cards.map((card, i) => <article className="virtual-card" key={card._id} style={{ background: `linear-gradient(135deg,${card.color || categoryColor(i)},#111120 85%)` }}><div className="virtual-card-top"><span>FINWISE · {card.kind.toUpperCase()}</span><CreditCard size={22}/></div><div className="card-chip"/><div className="card-number">•••• &nbsp;•••• &nbsp;•••• &nbsp;{card.last4}</div><div className="virtual-card-bottom"><div><small>CARDHOLDER</small><strong>{card.label}</strong></div><div><small>ISSUER</small><strong>{card.issuer}</strong></div><button title="Remove card" onClick={() => common.onDelete(card._id)}><Trash2 size={15}/></button></div></article>)}{!cards.length && <section className="panel empty-panel">No cards saved. Add a nickname and last four digits above.</section>}</div></section>;
+}
+export function SettingsView({ account, currency, onCurrency, onAccount, theme, onTheme, ...common }) {
+    const [name, setName] = useState(account.name);
+    const [selection, setSelection] = useState(currency);
+    const [selectedTheme, setSelectedTheme] = useState(theme || 'light');
+    const [loginEmails, setLoginEmails] = useState(account.loginEmails !== false);
+    const [busy, setBusy] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    async function save(e) { e.preventDefault(); setBusy(true); try {
+        const result = await common.api('/auth/settings', { method: 'PUT', body: JSON.stringify({ name, currency: selection, theme: selectedTheme, loginEmails }) });
+        onCurrency(result.settings.currency);
+        onTheme(result.settings.theme);
+        onAccount({ ...account, name: result.settings.name, email: result.settings.email, loginEmails: result.settings.loginEmails });
+        common.toast('Settings saved.');
+    } catch (error) { common.toast(error.message || 'Could not save settings.'); }
+    finally { setBusy(false); } }
+    async function exportData() { setExporting(true); try {
+        const data = await common.api('/auth/export');
+        const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+        const link = document.createElement('a'); link.href = url; link.download = 'finwise-data-export.json'; link.click(); URL.revokeObjectURL(url);
+        common.toast('Your FinWise data export was downloaded.');
+    } catch (error) { common.toast(error.message || 'Could not export your data.'); }
+    finally { setExporting(false); } }
+    return <section className="section-view"><div className="view-title"><div><div className="section-kicker">PREFERENCES</div><h1>Settings</h1><p>Manage your profile, preferences, and data.</p></div></div>
+      <form className="panel settings-card" onSubmit={save}>
+        <h2>Profile</h2><div className="settings-profile"><span className="settings-avatar">{name.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase()}</span><div><strong>{account.email}</strong><small>Email address</small></div></div>
+        <label className="settings-field">Display name<input value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={80} required/><small>This name appears in your FinWise workspace.</small></label>
+        <label className="settings-field">Display currency<select value={selection} onChange={e => setSelection(e.target.value)}><option value="USD">USD · US Dollar</option><option value="INR">INR · Indian Rupee</option><option value="EUR">EUR · Euro</option><option value="GBP">GBP · British Pound</option></select><small>Used for displaying transaction and budget amounts.</small></label>
+        <label className="settings-field">Appearance<select value={selectedTheme} onChange={e => setSelectedTheme(e.target.value)}><option value="light">Light</option><option value="dark">Dark</option></select><small>Choose the dashboard color theme.</small></label>
+        <div className="settings-toggle"><div><strong>Login thank-you emails</strong><small>Send an email after you sign in.</small></div><input type="checkbox" checked={loginEmails} onChange={e => setLoginEmails(e.target.checked)} aria-label="Enable login thank-you emails"/></div>
+        <button className="primary-action" disabled={busy}>{busy ? 'Saving…' : 'Save settings'}</button>
+      </form>
+      <section className="panel settings-card privacy-card"><h2>Privacy & data</h2><p>Download a copy of your profile, transactions, budgets, savings goals, and saved card references.</p><button type="button" className="secondary-action" onClick={exportData} disabled={exporting}>{exporting ? 'Preparing export…' : 'Download my data'}</button></section>
+    </section>;
+}
+export function HelpView() { const [open, setOpen] = useState(0); const faqs = [['How do I add a transaction?', 'Choose Transactions in the sidebar and select Add transaction. Enter the description, category, amount, date, and type.'], ['How are budgets calculated?', 'FinWise compares each category budget with the expenses you record in the matching month.'], ['Can I save my full card number here?', 'No. This page stores only a nickname, issuer, card type, and last four digits.'], ['How do I change my password?', 'If you use email and password, password reset is not available yet. Contact support for account help.']]; return <section className="section-view"><div className="view-title"><div><div className="section-kicker">WE’RE HERE TO HELP</div><h1>Help & support</h1><p>Quick answers to common FinWise questions.</p></div></div><section className="panel help-page-card"><h2>Frequently asked questions</h2>{faqs.map(([q, a], i) => <button className={`faq-item ${open === i ? 'expanded' : ''}`} key={q} onClick={() => setOpen(open === i ? -1 : i)}><strong>{q}<span>{open === i ? '−' : '+'}</span></strong>{open === i && <p>{a}</p>}</button>)}<div className="support-contact"><strong>Still need a hand?</strong><p>Send us a note and include the page you were using.</p><a href="mailto:support@finwise.app?subject=FinWise%20support">Email support</a></div></section></section>; }
+export function AssistantView({ api, ...common }) { const [question, setQuestion] = useState(''); const [answer, setAnswer] = useState('Ask me about your recorded spending, income, budgets, or savings goals.'); const [busy, setBusy] = useState(false); async function ask(e) { e.preventDefault(); if (!question.trim())
+    return; setBusy(true); try {
+    const result = await api('/api/assistant', { method: 'POST', body: JSON.stringify({ question }) });
+    setAnswer(result.answer);
+    setQuestion('');
+}
+catch (error) {
+    common.toast(error.message || 'Could not get an insight.');
+}
+finally {
+    setBusy(false);
+} } return <section className="assistant-layout"><div className="assistant-chat panel"><div className="assistant-hello"><div className="bot-orb"><Sparkles size={25}/></div><div><span className="online-label"><i /> READY</span><h1>Your finance assistant</h1><p>Ask a question about the data you have recorded.</p></div></div><div className="prompt-chips"><button onClick={() => setQuestion('Where am I spending the most?')}>◷ Spending breakdown</button><button onClick={() => setQuestion('How much income have I recorded?')}>↗ Income summary</button><button onClick={() => setQuestion('How are my savings goals going?')}>◎ Savings goals</button><button onClick={() => setQuestion('How am I doing with my budgets?')}>▤ Budget check</button></div><div className="assistant-answer">{answer}</div><form className="chat-compose" onSubmit={ask}><input value={question} onChange={e => setQuestion(e.target.value)} placeholder="Ask about your finances…"/><button disabled={busy} aria-label="Send"><Send size={17}/></button></form></div><div className="assistant-side"><section className="panel health-panel"><div className="section-kicker">GROUNDED IN YOUR DATA</div><h2>Personal finance insights</h2><p className="help-copy">Responses use your saved transactions, budgets, and goals. No data is sent to an external AI provider.</p></section><section className="panel quick-panel"><div className="section-kicker">TRY ASKING</div><p className="help-copy">“Where am I spending the most?”<br /><br />“How much have I saved toward my goals?”<br /><br />“How much income did I record?”</p></section></div></section>; }
+export function AddTransactionModal({ initial, onClose, onSave, currency }) {
+    const [description, setDescription] = useState(initial?.description || '');
+    const [category, setCategory] = useState(initial?.category || 'Food & drink');
+    const [kind, setKind] = useState(initial?.kind || 'expense');
+    const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
+    const [date, setDate] = useState(initial ? new Date(initial.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    async function submit(e) { e.preventDefault(); setError(''); setBusy(true); try {
+        await onSave({ description, category, kind, amount: Number(amount), date });
+        onClose();
+    }
+    catch (err) {
+        setError(err.message || 'Could not save transaction.');
+    }
+    finally {
+        setBusy(false);
+    } }
+    return <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}><form className="modal" onSubmit={submit}><div className="modal-head"><div><div className="section-kicker">{initial ? 'UPDATE ACTIVITY' : 'KEEP IT UP TO DATE'}</div><h2>{initial ? 'Edit transaction' : 'Add transaction'}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button></div><div className="type-toggle"><button type="button" className={kind === 'expense' ? 'chosen' : ''} onClick={() => setKind('expense')}><ArrowUpRight size={15}/> Expense</button><button type="button" className={kind === 'income' ? 'chosen income-chosen' : ''} onClick={() => setKind('income')}><ArrowDownLeft size={15}/> Income</button></div><label className="form-label">Description<input required maxLength={100} value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Coffee with friends"/></label><div className="form-row"><label className="form-label">Amount ({currency})<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/></label><label className="form-label">Category<select value={category} onChange={e => setCategory(e.target.value)}>{['Food & drink', 'Groceries', 'Housing', 'Shopping', 'Transport', 'Entertainment', 'Subscriptions', 'Health', 'Income', 'Other'].map(c => <option key={c}>{c}</option>)}</select></label></div><label className="form-label">Date<input required type="date" value={date} onChange={e => setDate(e.target.value)}/></label>{error && <div className="auth-error">{error}</div>}<div className="modal-actions"><button type="button" className="cancel-button" onClick={onClose}>Cancel</button><button className="submit-button" disabled={busy}>{busy ? 'Saving…' : initial ? 'Save changes' : 'Add transaction'} <Plus size={15}/></button></div></form></div>;
+}
