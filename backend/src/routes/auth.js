@@ -19,7 +19,7 @@ const router = (0, express_1.Router)();
 const scryptAsync = (0, node_util_1.promisify)(node_crypto_1.scrypt);
 const cookieName = 'finwise_token';
 const isProduction = process.env.NODE_ENV === 'production';
-const cookieOptions = { httpOnly: true, secure: isProduction, sameSite: (isProduction ? 'none' : 'lax'), path: '/', maxAge: 7 * 24 * 60 * 60 * 1000 };
+const cookieOptions = { httpOnly: true, secure: isProduction, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 60 * 60 * 1000 };
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 const googleReady = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.JWT_SECRET);
 async function hashPassword(password) {

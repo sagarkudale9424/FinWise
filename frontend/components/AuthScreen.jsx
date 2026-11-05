@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, LockKeyhole, Mail, Wallet } from 'lucide-react';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
 export default function AuthScreen({ mode }) {
     const router = useRouter();
     const [ready, setReady] = useState(false);

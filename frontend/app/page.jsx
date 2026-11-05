@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftRight, ArrowUpRight, BarChart3, Bell, Bot, ChevronDown, CircleHelp, CreditCard, Home, LogOut, Menu, Plus, Search, Settings, SlidersHorizontal, Sparkles, Target, Wallet, CircleUserRound } from 'lucide-react';
 import { AddTransactionModal, AnalyticsView, AssistantView, BudgetsView, CardsView, DashboardView, GoalsView, HelpView, SettingsView, TransactionsView } from '../components/FinanceViews';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
 const navOverview = [{ label: 'Dashboard', icon: Home }, { label: 'Analytics', icon: BarChart3 }, { label: 'Cards', icon: CreditCard }, { label: 'AI Assistant', icon: Bot }];
 const navFinance = [{ label: 'Transactions', icon: ArrowLeftRight }, { label: 'Budgets', icon: SlidersHorizontal }, { label: 'Savings Goals', icon: Target }];
 function getGreeting() { const hour = new Date().getHours(); if (hour >= 5 && hour < 12)
